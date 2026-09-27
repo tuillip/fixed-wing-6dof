@@ -19,43 +19,7 @@ State order, fixed everywhere in this file:
 
 import numpy as np
 from frames import vehicle_to_body
-
-
-# ----------------------------------------------------------------------
-# Parameters
-# ----------------------------------------------------------------------
-
-def aerosonde_params():
-    """Returns: dict of mass, inertia, gravity, plus the eight Gammas."""
-    prm = {
-        "mass": 11.0,
-        "Jx":   0.824,
-        "Jy":   1.135,
-        "Jz":   1.759,
-        "Jxz":  0.120,
-        "gravity": 9.81,
-    }
-    return add_gammas(prm)
-
-
-def add_gammas(prm):
-    Jx = prm["Jx"]
-    Jy = prm["Jy"]
-    Jz = prm["Jz"]
-    Jxz = prm["Jxz"]
-
-    Gamma = Jx * Jz - Jxz**2
-
-    prm["Gamma"] = Gamma
-    prm["Gamma1"] = Jxz * (Jx - Jy + Jz) / Gamma
-    prm["Gamma2"] = (Jz * (Jz - Jy) + Jxz**2) / Gamma
-    prm["Gamma3"] = Jz / Gamma
-    prm["Gamma4"] = Jxz / Gamma
-    prm["Gamma5"] = (Jz - Jx) / Jy
-    prm["Gamma6"] = Jxz / Jy
-    prm["Gamma7"] = (Jx * (Jx - Jy) + Jxz**2) / Gamma
-    prm["Gamma8"] = Jx / Gamma
-    return prm
+from params import aerosonde_params
 
 def inertia_matrix(prm):
     return np.array([[ prm["Jx"], 0, -prm["Jxz"]],
@@ -126,7 +90,7 @@ def simulate(x0, forces, moments, prm, t_end, dt=0.01):
         lambda t, y: derivatives(y, forces, moments, prm),
         t_span=(0.0, t_end),
         y0=np.asarray(x0, dtype=float),
-        t_eval=np.arange(0.0, t_end + dt, dt),
+        t_eval=np.linspace(0.0, t_end, int(round(t_end / dt)) + 1),
         rtol=1e-10,
         atol=1e-12,
     )

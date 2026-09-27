@@ -55,7 +55,7 @@ def body_to_wind(alpha, beta):
     return rot_z(beta) @ rot_y(-1*alpha)
 
 def airdata_from_body_velocity(u, v, w):
-    return (np.sqrt(u**2+v**2+w**2), np.arctan2(w/u), np.arctan2(v/(np.sqrt(u**2+w**2))))
+    return (np.sqrt(u**2+v**2+w**2), np.arctan2(w,u), np.arctan2(v,np.sqrt(u**2+w**2)))
 
 def body_velocity_from_airdata(Va, alpha, beta):
     return (Va*np.cos(alpha)*np.cos(beta), Va*np.sin(beta), Va*np.sin(alpha)*np.cos(beta))
