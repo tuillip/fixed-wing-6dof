@@ -24,51 +24,68 @@ from scipy.optimize import fsolve
 from params import aerosonde_params
 from aerodynamics import forces_moments
 from dynamics import derivatives
-
+from frames import body_velocity_from_airdata
 
 # ----------------------------------------------------------------------
 
 def trim_state(Va, alpha, beta, gamma, altitude=100.0):
     """
-    Takes:   Va [m/s], alpha, beta, gamma [rad], altitude [m]
-    Returns: (12,) state for steady straight flight
+    Build the 12-element state vector for steady straight flight.
 
-    Wings level, no rotation. Pitch attitude is alpha + gamma: the nose sits
-    at the angle of attack above the flight path, and the flight path sits
-    at gamma above horizontal. Body velocity comes from
-    body_velocity_from_airdata in frames.py -- or write it out.
-    NED: altitude h means pd = -h.
-    """
-    raise NotImplementedError("trim_state")
+    Args:
+        Va        airspeed                           [m/s]
+        alpha     angle of attack                    [rad]
+        beta      sideslip angle                     [rad]
+        gamma     flight path angle, + is climbing   [rad]
+        altitude  height above the reference         [m]
+
+    Returns:
+        (12,) array in the order
+            pn, pe, pd, u, v, w, phi, theta, psi, p, q, r
+        Callers name this x_trim.
+
+    Wings level (phi = 0), heading north (psi = 0), not rotating
+    (p = q = r = 0). Pitch attitude is alpha + gamma.
+
+    altitude is cosmetic here: rho is a fixed constant in params.py, so
+    nothing in the dynamics depends on pd. It would only matter with an
+    atmosphere model. 100 m is just a plausible number.
+    """ 
+    pn = 0
+    pe = 0
+    pd = -altitude
+    u, v, w = body_velocity_from_airdata(Va, alpha, beta)
+    phi = 0
+    theta = alpha + gamma
+    psi = 0
+    p = q = r = 0.0
+    return np.array([pn, pe, pd, u, v, w, phi, theta, psi, p, q, r])
 
 
 def trim_residual(z, Va, gamma, prm):
-    """
-    Takes:   z = (alpha, beta, delta_e, delta_a, delta_r, delta_t),
-             Va, gamma, prm
-    Returns: (6,) the derivatives that must be zero at trim --
-             u_dot, v_dot, w_dot, p_dot, q_dot, r_dot
+    alpha, beta, delta_e, delta_a, delta_r, delta_t = z
+    x = trim_state(Va, alpha, beta, gamma)
 
-    Build the state, get forces and moments, call derivatives(), and pull
-    out those six. Position rates and Euler rates are NOT included: position
-    is supposed to change, and the Euler rates fall out at zero on their own.
-    """
-    raise NotImplementedError("trim_residual")
+    f, m = forces_moments(x, (delta_e, delta_a, delta_r, delta_t), prm)
+    xdot = derivatives(x, f, m, prm)
 
+    return np.concatenate([xdot[3:6], xdot[9:12]])
+    
 
 def trim(Va, gamma, prm, z0=None):
-    """
-    Takes:   Va [m/s], gamma [rad], prm, optional initial guess z0 (6,)
-    Returns: (x_trim (12,), deltas_trim (4,))
+    if z0 is None:
+        z0 = [0.05, 0.0, -0.1, 0.0, 0.0, 0.5]
+    z, infodict, ier, mesg = fsolve(trim_residual, z0, args=(Va, gamma, prm), full_output=True)
 
-    Root-find trim_residual with scipy.optimize.fsolve. A reasonable start
-    is alpha=0.05, beta=0, delta_e=-0.1, delta_a=0, delta_r=0, delta_t=0.5.
-
-    Consider using full_output=True and raising if it did not converge --
-    a silent bad answer here poisons every result downstream.
-    """
-    raise NotImplementedError("trim")
-
+    if (ier != 1):
+        raise RuntimeError(f"trim did not converge at Va={Va}, gamma={gamma}: {mesg}")
+    
+    alpha, beta, delta_e, delta_a, delta_r, delta_t = z
+    
+    x_trim = trim_state(Va, alpha, beta, gamma)
+    deltas = (delta_e, delta_a, delta_r, delta_t)
+    return x_trim, deltas
+    
 
 # ======================================================================
 # Tests
