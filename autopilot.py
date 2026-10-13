@@ -449,8 +449,16 @@ def altitude_zone(h, h_c, prm, takeoff_alt=10.0, hold_band=20.0):
     zone boundary will chatter between two sets of loops. Not required for
     the tests, but it is the kind of thing an interviewer asks about.
     """
-    raise NotImplementedError("altitude_zone")
 
+    if (h <= takeoff_alt):
+        return "takeoff"
+    elif (h_c > h + hold_band):
+        return "climb"
+    elif (h_c + hold_band < h):
+        return "descend"
+    else:
+        return "altitude_hold"
+    
 
 def autopilot(x, commands, ctrl, prm, delta_t_trim):
     """
